@@ -1,0 +1,78 @@
+---
+title: "nces_themes"
+author: "Michael Lee"
+date: "August 23, 2016"
+output: html_document
+---
+
+```{r setup}
+library(ggplot2) # devtools::install_github("hadley/ggplot2")
+library(scales)
+library(showtext)
+library(dplyr)
+library(lubridate)
+library(tweenr) # devtools::install_github("thomasp85/tweenr")
+library(gganimate) # devtools::install_github("dgrtwo/gganimate")
+library(animation)
+
+dest2 <- file.path(tempdir(), "open-sans.regular.ttf")
+download.file("http://ff.static.1001fonts.net/o/p/open-sans.regular.ttf", dest2, mode = "wb")
+font.add("regular", regular = dest2)
+
+font.families()
+showtext.auto()
+
+
+data("txhousing")
+res <- txhousing %>% filter(city %in% unique(txhousing$city)[1:6] & month==1)
+res <- res[,c(1,2,6)]
+res$city <- factor(res$city, levels = c("Abilene","Amarillo", "Arlington", "Austin", "Bay Area", "Beaumont"), labels = c("Abilene","Amarillo", "Arlington", "Austin", "Bay Area", "Beaumont"))
+res$year <- as.character(res$year)
+res$year <- as.Date(res$year,"%Y")
+
+states2<-factor(unique((res$year)))
+
+myf<-function(mystate){as.data.frame(res[res$year==as.Date(mystate),])}
+
+my.list2<-lapply(states2,myf)
+
+# Apply tweenr:
+
+tf <- tween_states(my.list2, tweenlength= 2, statelength=1, ease='cubic-in-out',nframes=300)
+tf$year <- as.Date(tf$year,"%Y")
+
+
+tf$cityLabel <- as.character(tf$city)
+
+gg <- ggplot(tf, aes(x = year, y = median, frame = year)) + geom_line(aes(group=city, color=city, cumulative = TRUE, label=cityLabel, linetype=city), size=1.25) + scale_x_date(labels=year(unique(res$year)), breaks=unique(res$year)) + scale_linetype_manual(values = c(2,3,1,1,1,1)) +
+  geom_text(
+    aes(
+      label = cityLabel
+    ),
+    size = 4 , nudge_y = 0 ,nudge_x=300
+  )
+
+gg <- gg + labs(x="Year", y="Median sale price", title = "Median Sale Price of Six Texas Cities; Selected years 2000 through 2015", caption = "NOTE: The first six Texas cities alphabetically in the txhousing ggplot2 data set")
+
+theme_white <- theme(text=element_text(family="regular"),
+                panel.background=element_blank(),
+                panel.grid.major.y=element_line(color="gray", linetype="dashed"),
+                panel.grid.major.x=element_blank(),
+                panel.grid.minor.x=element_blank(),
+                panel.grid.minor.y=element_blank(),
+                axis.title.y = element_blank(),
+                axis.title.x = element_text(size=14),
+                axis.text.x=element_text(size=12),
+                axis.text.y=element_text(size=12),
+                axis.ticks.x=element_line(),
+                axis.ticks.y=element_blank(),
+                axis.text.x=element_text(family="regular",size=14),
+                plot.title=element_text(family="regular",size=18,face = "bold",lineheight=1.15),
+                plot.caption=element_text(size=12, hjust=0, margin=margin(t=15),lineheight=1.15),
+                legend.position="none"
+                )
+
+my_palette = c( "#007934","#86BA96","#86BA96","#B6D7C0", "#000000",  "#007934")
+gg2 <- gg + theme_white + scale_color_manual(values=my_palette)
+gg_animate(gg2,"txhousing.gif",interval = .05, pause=0.05, ani.width = 1200, ani.height = 650, title_frame = FALSE)
+```
